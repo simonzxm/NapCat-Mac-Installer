@@ -120,18 +120,7 @@ struct ContentView: View {
 
     private func updatePatchStatus() {
         do {
-            guard let loader = try getAppLoader() else {
-                patchStatus = .custom("")
-                return
-            }
-            switch loader {
-            case let l where PatchStatus.originalLoaders.contains(l):
-                patchStatus = .original
-            case let l where napcatLoaders.contains(l):
-                patchStatus = .napcat
-            default:
-                patchStatus = .custom(loader)
-            }
+            patchStatus = try getPatchStatus()
         } catch {
             patchStatus = .failed(error.localizedDescription)
         }
@@ -279,15 +268,14 @@ private struct NapcatPatchView: View {
         case .original, .custom:
             VStack(alignment: .leading) {
                 HStack {
-                    Text("请备份")
+                    Text("将自动备份并修改")
                     Button("QQ应用目录", action: getQQPackage)
-                    Text("下的package.json文件")
+                    Text("下的启动入口")
                 }
                 HStack {
-                    Text("然后使用此")
-                    Button("修改的文件") {
+                    Button("应用补丁") {
                         do {
-                            try getPatchedPackage()
+                            try applyNapcatPatch()
                         } catch {
                             failed = true
                             self.error = error
@@ -303,11 +291,23 @@ private struct NapcatPatchView: View {
             }
         case .napcat:
             VStack(alignment: .leading) {
-                Text("如果要还原，请将备份的package.json文件放回")
                 HStack {
-                    Button("QQ应用目录", action: getQQPackage)
-                    Text("，然后点击刷新")
+                    Text("已修改 QQ 启动入口")
+                    Button("还原补丁") {
+                        do {
+                            try restoreNapcatPatch()
+                        } catch {
+                            failed = true
+                            self.error = error
+                        }
+                    }
+                    Text("，最后点击刷新")
                 }
+            }
+            .alert("发生错误", isPresented: $failed, presenting: error) { _ in
+                Button("好") { failed = false }
+            } message: { e in
+                Text(e.localizedDescription)
             }
         }
     }

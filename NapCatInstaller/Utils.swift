@@ -49,6 +49,14 @@ private func getActiveAppURL() -> URL {
     return appURL
 }
 
+private func getPatchTargetAppURLs() -> [URL] {
+    let activeAppURL = getActiveAppURL()
+    if activeAppURL == appURL {
+        return [appURL]
+    }
+    return [appURL, activeAppURL]
+}
+
 private func getPackageURL() -> URL {
     getActiveAppURL().appendingPathComponent("package.json")
 }
@@ -141,6 +149,23 @@ private func writeNapcatMetadata(_ metadata: NapcatInstallationMetadata, to url:
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     let data = try encoder.encode(metadata)
     try data.write(to: url.appendingPathComponent(".napcat-installer.json"), options: .atomic)
+}
+
+private func codesignNapcatNativeAddons(at url: URL) throws {
+    guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil) else {
+        return
+    }
+
+    for case let fileURL as URL in enumerator where fileURL.pathExtension == "node" {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+        process.arguments = ["--force", "--sign", "-", fileURL.path]
+        try process.run()
+        process.waitUntilExit()
+        if process.terminationStatus != 0 {
+            throw CocoaError(.fileWriteUnknown)
+        }
+    }
 }
 
 func getLocalNapcat() throws -> LocalNapcatVersion? {
@@ -268,6 +293,7 @@ func installNapcat(proxy: GitHubProxy? = nil) async throws {
         NapcatInstallationMetadata(tagName: release.tagName, version: release.version, installedAt: Date()),
         to: stagingURL
     )
+    try codesignNapcatNativeAddons(at: stagingURL)
 
     try fileManager.createDirectory(at: docURL, withIntermediateDirectories: true)
     if fileManager.fileExists(atPath: napcatURL.path) {
@@ -297,7 +323,17 @@ enum PatchStatus: Equatable {
 private let loaderURL = docURL.appendingPathComponent("loadNapCat.js")
 let napcatLoader = loaderURL.path
 private let legacyNapcatLoader = "../../../../..\(docURL.path)/loadNapCat.js"
+private let patchedMain = "./app_launcher/index.js"
+private let patchedEntry = "require('\(loaderURL.path)');\n"
 let napcatLoaders = [napcatLoader, legacyNapcatLoader]
+
+private func appLauncherIndexURL(for appURL: URL) -> URL {
+    appURL.appendingPathComponent("app_launcher/index.js")
+}
+
+private func backupURL(for url: URL) -> URL {
+    URL(fileURLWithPath: url.path + ".napcat.bak")
+}
 
 func getAppLoader() throws -> String? {
     let packageURL = getPackageURL()
@@ -306,6 +342,39 @@ func getAppLoader() throws -> String? {
     let obj = try JSONSerialization.jsonObject(with: data)
     guard let dict = obj as? [NSString: Any] else { return nil }
     return dict["main"] as? String
+}
+
+private func isPatched(appURL: URL) throws -> Bool {
+    let packageURL = appURL.appendingPathComponent("package.json")
+    guard let package = try getJSONObject(url: packageURL),
+        let main = package["main"] as? String,
+        main == patchedMain
+    else {
+        return false
+    }
+
+    let entryURL = appLauncherIndexURL(for: appURL)
+    guard FileManager.default.fileExists(atPath: entryURL.path) else { return false }
+    return try String(contentsOf: entryURL, encoding: .utf8) == patchedEntry
+}
+
+func getPatchStatus() throws -> PatchStatus {
+    let targets = getPatchTargetAppURLs()
+    if try targets.allSatisfy({ try isPatched(appURL: $0) }) {
+        return .napcat
+    }
+
+    guard let loader = try getAppLoader() else {
+        return .custom("")
+    }
+    switch loader {
+    case let l where PatchStatus.originalLoaders.contains(l):
+        return .original
+    case let l where napcatLoaders.contains(l):
+        return .napcat
+    default:
+        return .custom(loader)
+    }
 }
 
 private func createLoader() throws {
@@ -352,9 +421,11 @@ private func createLoader() throws {
             await import('file://\#(docURL.path)/napcat/napcat.mjs');
         })();
     } else {
-        require(path.join(appPath, getOriginalMain(package.buildVersion)));
+        require(path.join(appPath, 'major.node')).load('internal_index', module);
         setImmediate(() => {
-            global.launcher.installPathPkgJson.main = getOriginalMain(package.buildVersion);
+            if (global.launcher?.installPathPkgJson) {
+                global.launcher.installPathPkgJson.main = getOriginalMain(package.buildVersion);
+            }
         });
     }
     """#
@@ -365,19 +436,59 @@ func getQQPackage() {
     NSWorkspace.shared.activateFileViewerSelecting([getPackageURL()])
 }
 
-func getPatchedPackage() throws {
+func applyNapcatPatch() throws {
     try createLoader()
-    guard var qq = try getJSONObject(url: getPackageURL()) else { return }
-    qq["main"] = napcatLoader
-    let data = try JSONSerialization.data(withJSONObject: qq, options: [.prettyPrinted, .withoutEscapingSlashes])
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("package.json")
-    try data.write(to: url, options: .atomic)
-    NSWorkspace.shared.activateFileViewerSelecting([url])
+
+    for appURL in getPatchTargetAppURLs() {
+        let packageURL = appURL.appendingPathComponent("package.json")
+        let entryURL = appLauncherIndexURL(for: appURL)
+        let fileManager = FileManager.default
+
+        let packageBackupURL = backupURL(for: packageURL)
+        if !fileManager.fileExists(atPath: packageBackupURL.path) {
+            try fileManager.copyItem(at: packageURL, to: packageBackupURL)
+        }
+
+        let entryBackupURL = backupURL(for: entryURL)
+        if !fileManager.fileExists(atPath: entryBackupURL.path) {
+            try fileManager.copyItem(at: entryURL, to: entryBackupURL)
+        }
+
+        guard var qq = try getJSONObject(url: packageURL) else { continue }
+        qq["main"] = patchedMain
+        let data = try JSONSerialization.data(withJSONObject: qq, options: [.prettyPrinted, .withoutEscapingSlashes])
+        try data.write(to: packageURL, options: .atomic)
+        try patchedEntry.write(to: entryURL, atomically: true, encoding: .utf8)
+    }
+}
+
+func restoreNapcatPatch() throws {
+    for appURL in getPatchTargetAppURLs() {
+        let packageURL = appURL.appendingPathComponent("package.json")
+        let entryURL = appLauncherIndexURL(for: appURL)
+        let fileManager = FileManager.default
+
+        let packageBackupURL = backupURL(for: packageURL)
+        if fileManager.fileExists(atPath: packageBackupURL.path) {
+            if fileManager.fileExists(atPath: packageURL.path) {
+                try fileManager.removeItem(at: packageURL)
+            }
+            try fileManager.copyItem(at: packageBackupURL, to: packageURL)
+        }
+
+        let entryBackupURL = backupURL(for: entryURL)
+        if fileManager.fileExists(atPath: entryBackupURL.path) {
+            if fileManager.fileExists(atPath: entryURL.path) {
+                try fileManager.removeItem(at: entryURL)
+            }
+            try fileManager.copyItem(at: entryBackupURL, to: entryURL)
+        }
+    }
 }
 
 let napcatInstructions = #"""
     # \#(NSLocalizedString("命令行启动，注入 NapCat", comment: ""))
-    $ NAPCAT=1 /Applications/QQ.app/Contents/MacOS/QQ --no-sandbox
+    $ NAPCAT=1 NAPCAT_DISABLE_MULTI_PROCESS=1 NAPCAT_DISABLE_PIPE=1 NAPCAT_DISABLE_BYPASS=1 /Applications/QQ.app/Contents/MacOS/QQ --no-sandbox --napcat
     # \#(NSLocalizedString("参数可以加 -q <QQ号> 快速登录", comment: ""))
 
     # \#(NSLocalizedString("正常启动 QQ GUI，不注入 NapCat", comment: ""))
