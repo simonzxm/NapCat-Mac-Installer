@@ -13,6 +13,7 @@ let appURL = URL(fileURLWithPath: "/Applications/QQ.app/Contents/Resources/app")
 let containerURL = URL(fileURLWithPath: "/Users/\(NSUserName())/Library/Containers/com.tencent.qq/Data")
 let docURL = containerURL.appendingPathComponent("Documents", isDirectory: true)
 let datURL = containerURL.appendingPathComponent("Library/Application Support/QQ/NapCat", isDirectory: true)
+private let versionsConfigURL = containerURL.appendingPathComponent("Library/Application Support/QQ/versions/config.json")
 
 private func getJSONObject(url: URL) throws -> [NSString: Any]? {
     guard FileManager.default.fileExists(atPath: url.path) else { return nil }
@@ -28,10 +29,32 @@ enum QQVersion: Equatable {
     case failed(String)
 }
 
-let packageURL = appURL.appendingPathComponent("package.json")
+private func getActiveAppURL() -> URL {
+    guard let config = try? getJSONObject(url: versionsConfigURL),
+        let currentVersion = config["curVersion"] as? String,
+        !currentVersion.isEmpty
+    else {
+        return appURL
+    }
+
+    let hotUpdateAppURL =
+        versionsConfigURL
+        .deletingLastPathComponent()
+        .appendingPathComponent(currentVersion, isDirectory: true)
+        .appendingPathComponent("QQUpdate.app/Contents/Resources/app", isDirectory: true)
+    let hotUpdatePackageURL = hotUpdateAppURL.appendingPathComponent("package.json")
+    if FileManager.default.fileExists(atPath: hotUpdatePackageURL.path) {
+        return hotUpdateAppURL
+    }
+    return appURL
+}
+
+private func getPackageURL() -> URL {
+    getActiveAppURL().appendingPathComponent("package.json")
+}
 
 func getQQVersion() throws -> String? {
-    guard let package = try getJSONObject(url: packageURL) else { return nil }
+    guard let package = try getJSONObject(url: getPackageURL()) else { return nil }
     return package["version"] as? String
 }
 
@@ -271,9 +294,13 @@ enum PatchStatus: Equatable {
     ]
 }
 
-let napcatLoader = "../../../../..\(docURL.path)/loadNapCat.js"
+private let loaderURL = docURL.appendingPathComponent("loadNapCat.js")
+let napcatLoader = loaderURL.path
+private let legacyNapcatLoader = "../../../../..\(docURL.path)/loadNapCat.js"
+let napcatLoaders = [napcatLoader, legacyNapcatLoader]
 
 func getAppLoader() throws -> String? {
+    let packageURL = getPackageURL()
     guard FileManager.default.fileExists(atPath: packageURL.path) else { return nil }
     let data = try Data(contentsOf: packageURL)
     let obj = try JSONSerialization.jsonObject(with: data)
@@ -281,25 +308,53 @@ func getAppLoader() throws -> String? {
     return dict["main"] as? String
 }
 
-private let loaderURL = docURL.appendingPathComponent("loadNapCat.js")
-
 private func createLoader() throws {
     try #"""
-    const hasNapcatParam = process.argv.includes('--no-sandbox');
-    const package = require('/Applications/QQ.app/Contents/Resources/app/package.json');
+    const fs = require('fs');
+    const path = require('path');
 
-    if (hasNapcatParam) {
+    const baseAppPath = '\#(appURL.path)';
+    const versionsConfigPath = '\#(versionsConfigURL.path)';
+
+    function getActiveAppPath() {
+        try {
+            const config = JSON.parse(fs.readFileSync(versionsConfigPath, 'utf8'));
+            if (config.curVersion) {
+                const hotUpdatePath = path.join(
+                    path.dirname(versionsConfigPath),
+                    config.curVersion,
+                    'QQUpdate.app/Contents/Resources/app',
+                );
+                if (fs.existsSync(path.join(hotUpdatePath, 'package.json'))) {
+                    return hotUpdatePath;
+                }
+            }
+        } catch {}
+        return baseAppPath;
+    }
+
+    function getOriginalMain(buildVersion) {
+        if (buildVersion >= 29271) return './application.asar/app_launcher/index.js';
+        if (buildVersion >= 28060) return './application/app_launcher/index.js';
+        return './app_launcher/index.js';
+    }
+
+    const shouldLoadNapcat =
+        process.env.NAPCAT === '1' ||
+        process.env.NAPCAT_INJECT === '1' ||
+        process.argv.includes('--napcat') ||
+        process.argv.includes('--no-sandbox');
+    const appPath = getActiveAppPath();
+    const package = require(path.join(appPath, 'package.json'));
+
+    if (shouldLoadNapcat) {
         (async () => {
             await import('file://\#(docURL.path)/napcat/napcat.mjs');
         })();
     } else {
-        require('\#(appURL.path)/app_launcher/index.js');
+        require(path.join(appPath, getOriginalMain(package.buildVersion)));
         setImmediate(() => {
-            global.launcher.installPathPkgJson.main = ((version) => {
-                if (version >= 29271) return "./application.asar/app_launcher/index.js";
-                if (version >= 28060) return "./application/app_launcher/index.js";
-                return "./app_launcher/index.js";
-            })(package.buildVersion);
+            global.launcher.installPathPkgJson.main = getOriginalMain(package.buildVersion);
         });
     }
     """#
@@ -307,12 +362,12 @@ private func createLoader() throws {
 }
 
 func getQQPackage() {
-    NSWorkspace.shared.activateFileViewerSelecting([packageURL])
+    NSWorkspace.shared.activateFileViewerSelecting([getPackageURL()])
 }
 
 func getPatchedPackage() throws {
     try createLoader()
-    guard var qq = try getJSONObject(url: packageURL) else { return }
+    guard var qq = try getJSONObject(url: getPackageURL()) else { return }
     qq["main"] = napcatLoader
     let data = try JSONSerialization.data(withJSONObject: qq, options: [.prettyPrinted, .withoutEscapingSlashes])
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("package.json")
@@ -322,7 +377,7 @@ func getPatchedPackage() throws {
 
 let napcatInstructions = #"""
     # \#(NSLocalizedString("命令行启动，注入 NapCat", comment: ""))
-    $ /Applications/QQ.app/Contents/MacOS/QQ --no-sandbox
+    $ NAPCAT=1 /Applications/QQ.app/Contents/MacOS/QQ --no-sandbox
     # \#(NSLocalizedString("参数可以加 -q <QQ号> 快速登录", comment: ""))
 
     # \#(NSLocalizedString("正常启动 QQ GUI，不注入 NapCat", comment: ""))

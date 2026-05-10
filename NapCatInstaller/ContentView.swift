@@ -127,7 +127,7 @@ struct ContentView: View {
             switch loader {
             case let l where PatchStatus.originalLoaders.contains(l):
                 patchStatus = .original
-            case napcatLoader:
+            case let l where napcatLoaders.contains(l):
                 patchStatus = .napcat
             default:
                 patchStatus = .custom(loader)
