@@ -264,6 +264,7 @@ func getRemoteNapcat() async throws -> String? {
 
 func removeNapcat() throws {
     try? FileManager.default.removeItem(at: loaderURL)
+    try? FileManager.default.removeItem(at: launcherURL)
     try FileManager.default.removeItem(at: napcatURL)
 }
 
@@ -378,6 +379,7 @@ enum PatchStatus: Equatable {
 }
 
 private let loaderURL = docURL.appendingPathComponent("loadNapCat.js")
+private let launcherURL = docURL.appendingPathComponent("startNapCat.command")
 let napcatLoader = loaderURL.path
 private let legacyNapcatLoader = "../../../../..\(docURL.path)/loadNapCat.js"
 private let patchedMain = "./app_launcher/index.js"
@@ -510,12 +512,27 @@ private func createLoader() throws {
     .write(to: loaderURL, atomically: true, encoding: .utf8)
 }
 
+private func createLauncher() throws {
+    let launcher = #"""
+    #!/bin/bash
+    export NAPCAT=1
+    export NAPCAT_DISABLE_MULTI_PROCESS=1
+    export NAPCAT_DISABLE_PIPE=1
+    export NAPCAT_DISABLE_BYPASS=1
+    exec /Applications/QQ.app/Contents/MacOS/QQ --no-sandbox --napcat "$@"
+    """#
+
+    try launcher.write(to: launcherURL, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: launcherURL.path)
+}
+
 func getQQPackage() {
     NSWorkspace.shared.activateFileViewerSelecting([getPackageURL()])
 }
 
 func applyNapcatPatch() throws {
     try createLoader()
+    try createLauncher()
     try patchNapcatCompatibilityTable()
 
     for appURL in getPatchTargetAppURLs() {
@@ -567,7 +584,7 @@ func restoreNapcatPatch() throws {
 
 let napcatInstructions = #"""
     # \#(NSLocalizedString("命令行启动，注入 NapCat", comment: ""))
-    $ NAPCAT=1 NAPCAT_DISABLE_MULTI_PROCESS=1 NAPCAT_DISABLE_PIPE=1 NAPCAT_DISABLE_BYPASS=1 /Applications/QQ.app/Contents/MacOS/QQ --no-sandbox --napcat
+    $ \#(launcherURL.path)
     # \#(NSLocalizedString("参数可以加 -q <QQ号> 快速登录", comment: ""))
 
     # \#(NSLocalizedString("正常启动 QQ GUI，不注入 NapCat", comment: ""))
