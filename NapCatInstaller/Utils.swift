@@ -168,6 +168,62 @@ private func codesignNapcatNativeAddons(at url: URL) throws {
     }
 }
 
+private func getMajorURL(for appURL: URL) -> URL {
+    appURL.appendingPathComponent("major.node")
+}
+
+private func parseAppId(from majorURL: URL) throws -> String? {
+    let marker = Data("QQAppId/".utf8)
+    let data = try Data(contentsOf: majorURL)
+    var searchRange = data.startIndex..<data.endIndex
+
+    while let markerRange = data.range(of: marker, options: [], in: searchRange) {
+        let start = markerRange.upperBound
+        guard let end = data[start...].firstIndex(of: 0) else { return nil }
+        let valueData = data[start..<end]
+        if let value = String(data: valueData, encoding: .utf8),
+            !value.isEmpty,
+            value.allSatisfy(\.isNumber)
+        {
+            return value
+        }
+        searchRange = end..<data.endIndex
+    }
+
+    return nil
+}
+
+private func qqQUA(for version: String) -> String? {
+    let parts = version.split(separator: "-", maxSplits: 1).map(String.init)
+    guard parts.count == 2 else { return nil }
+    return "V1_MAC_NQ_\(parts[0])_\(parts[1])_GW_B"
+}
+
+private func patchNapcatCompatibilityTable() throws {
+    let activeAppURL = getActiveAppURL()
+    guard let version = try getQQVersion(),
+        let qua = qqQUA(for: version),
+        let appid = try parseAppId(from: getMajorURL(for: activeAppURL))
+    else {
+        return
+    }
+
+    let napcatEntryURL = napcatURL.appendingPathComponent("napcat.mjs")
+    guard FileManager.default.fileExists(atPath: napcatEntryURL.path) else { return }
+
+    var source = try String(contentsOf: napcatEntryURL, encoding: .utf8)
+    let entryPrefix = #"  "\#(version)": {"#
+    if source.contains(entryPrefix) {
+        return
+    }
+
+    let marker = "\n};\n\nclass QQBasicInfoWrapper"
+    guard let range = source.range(of: marker) else { return }
+    let entry = #"  "\#(version)": {"appid":\#(appid),"qua":"\#(qua)"},"# + "\n"
+    source.replaceSubrange(range, with: "\n\(entry)};\n\nclass QQBasicInfoWrapper")
+    try source.write(to: napcatEntryURL, atomically: true, encoding: .utf8)
+}
+
 func getLocalNapcat() throws -> LocalNapcatVersion? {
     if let metadata = try readNapcatMetadata() {
         return .known(normalizeVersion(metadata.version))
@@ -300,6 +356,7 @@ func installNapcat(proxy: GitHubProxy? = nil) async throws {
         try fileManager.removeItem(at: napcatURL)
     }
     try fileManager.moveItem(at: stagingURL, to: napcatURL)
+    try patchNapcatCompatibilityTable()
 }
 
 enum PatchStatus: Equatable {
@@ -408,6 +465,26 @@ private func createLoader() throws {
         return './app_launcher/index.js';
     }
 
+    function configureNapcatRuntime(appPath) {
+        process.env.NAPCAT_QQ_PACKAGE_INFO_PATH = path.join(appPath, 'package.json');
+        process.env.NAPCAT_QQ_VERSION_CONFIG_PATH = versionsConfigPath;
+        process.env.NAPCAT_WRAPPER_PATH = path.join(appPath, 'wrapper.node');
+
+        const hotUpdateExecPath = path.resolve(appPath, '../../MacOS/QQUpdate');
+        if (fs.existsSync(hotUpdateExecPath)) {
+            try {
+                process.execPath = hotUpdateExecPath;
+            } catch {
+                try {
+                    Object.defineProperty(process, 'execPath', {
+                        value: hotUpdateExecPath,
+                        configurable: true,
+                    });
+                } catch {}
+            }
+        }
+    }
+
     const shouldLoadNapcat =
         process.env.NAPCAT === '1' ||
         process.env.NAPCAT_INJECT === '1' ||
@@ -417,6 +494,7 @@ private func createLoader() throws {
     const package = require(path.join(appPath, 'package.json'));
 
     if (shouldLoadNapcat) {
+        configureNapcatRuntime(appPath);
         (async () => {
             await import('file://\#(docURL.path)/napcat/napcat.mjs');
         })();
@@ -438,6 +516,7 @@ func getQQPackage() {
 
 func applyNapcatPatch() throws {
     try createLoader()
+    try patchNapcatCompatibilityTable()
 
     for appURL in getPatchTargetAppURLs() {
         let packageURL = appURL.appendingPathComponent("package.json")
