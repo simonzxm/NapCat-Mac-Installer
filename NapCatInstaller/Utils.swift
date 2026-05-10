@@ -54,18 +54,108 @@ enum NapcatVersion: Equatable {
 
 private let napcatURL = docURL.appendingPathComponent("napcat")
 private let napcatPackageURL = napcatURL.appendingPathComponent("package.json")
+private let napcatMetadataURL = napcatURL.appendingPathComponent(".napcat-installer.json")
 
-func getLocalNapcat() throws -> String? {
+enum LocalNapcatVersion {
+    case known(String)
+    case unknown
+}
+
+private struct NapcatInstallationMetadata: Codable {
+    let tagName: String
+    let version: String
+    let installedAt: Date
+}
+
+private struct NapcatRelease: Decodable {
+    let tagName: String
+    let assets: [NapcatReleaseAsset]
+
+    enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+        case assets
+    }
+
+    var version: String {
+        normalizeVersion(tagName)
+    }
+
+    var shellAssetURL: URL? {
+        assets.first { $0.name == "NapCat.Shell.zip" }
+            .flatMap { URL(string: $0.browserDownloadURL) }
+    }
+}
+
+private struct NapcatReleaseAsset: Decodable {
+    let name: String
+    let browserDownloadURL: String
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case browserDownloadURL = "browser_download_url"
+    }
+}
+
+private func normalizeVersion(_ version: String) -> String {
+    let trimmed = version.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.lowercased().hasPrefix("v") {
+        return String(trimmed.dropFirst())
+    }
+    return trimmed
+}
+
+private func readNapcatMetadata() throws -> NapcatInstallationMetadata? {
+    guard FileManager.default.fileExists(atPath: napcatMetadataURL.path) else { return nil }
+    let data = try Data(contentsOf: napcatMetadataURL)
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    return try decoder.decode(NapcatInstallationMetadata.self, from: data)
+}
+
+private func writeNapcatMetadata(_ metadata: NapcatInstallationMetadata, to url: URL) throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    let data = try encoder.encode(metadata)
+    try data.write(to: url.appendingPathComponent(".napcat-installer.json"), options: .atomic)
+}
+
+func getLocalNapcat() throws -> LocalNapcatVersion? {
+    if let metadata = try readNapcatMetadata() {
+        return .known(normalizeVersion(metadata.version))
+    }
     guard let dict = try getJSONObject(url: napcatPackageURL) else { return nil }
-    return dict["version"] as? String
+    guard let version = dict["version"] as? String else { return .unknown }
+    let normalized = normalizeVersion(version)
+    return normalized == "0.0.1" ? .unknown : .known(normalized)
+}
+
+private func getRemoteNapcatRelease() async throws -> NapcatRelease {
+    let urls = [
+        URL(string: "https://api.github.com/repos/NapNeko/NapCatQQ/releases/latest")!,
+        URL(string: "https://nclatest.znin.net/")!,
+    ]
+    var lastError: Error?
+    for url in urls {
+        do {
+            var request = URLRequest(url: url, timeoutInterval: 10)
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse,
+                !(200..<300).contains(httpResponse.statusCode)
+            {
+                throw URLError(.badServerResponse)
+            }
+            return try JSONDecoder().decode(NapcatRelease.self, from: data)
+        } catch {
+            lastError = error
+        }
+    }
+    throw lastError!
 }
 
 func getRemoteNapcat() async throws -> String? {
-    let (data, _) = try await URLSession.shared.data(from: URL(string: "https://nclatest.znin.net/")!)
-    let obj = try JSONSerialization.jsonObject(with: data)
-    guard let dict = obj as? [NSString: Any] else { return nil }
-    guard let tagName = dict["tag_name"] as? String else { return nil }
-    return tagName.replacingOccurrences(of: "v", with: "")
+    try await getRemoteNapcatRelease().version
 }
 
 func removeNapcat() throws {
@@ -136,11 +226,10 @@ enum GitHubProxy: String, CaseIterable {
 
 func installNapcat(proxy: GitHubProxy? = nil) async throws {
     let fileManager = FileManager.default
-    if fileManager.fileExists(atPath: napcatURL.path) {
-        try fileManager.removeItem(at: napcatURL)
-    }
-    try fileManager.createDirectory(at: napcatURL, withIntermediateDirectories: true)
-    let asset = "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.zip"
+    let release = try await getRemoteNapcatRelease()
+    let asset =
+        release.shellAssetURL?.absoluteString
+        ?? "https://github.com/NapNeko/NapCatQQ/releases/latest/download/NapCat.Shell.zip"
     let url: URL
     if let proxy {
         url = proxy.url(for: asset)
@@ -148,7 +237,20 @@ func installNapcat(proxy: GitHubProxy? = nil) async throws {
         url = try await GitHubProxy.auto().url(for: asset)
     }
     let (zip, _) = try await URLSession.shared.download(from: url)
-    try fileManager.unzipItem(at: zip, to: napcatURL)
+    let stagingURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? fileManager.removeItem(at: stagingURL) }
+    try fileManager.createDirectory(at: stagingURL, withIntermediateDirectories: true)
+    try fileManager.unzipItem(at: zip, to: stagingURL)
+    try writeNapcatMetadata(
+        NapcatInstallationMetadata(tagName: release.tagName, version: release.version, installedAt: Date()),
+        to: stagingURL
+    )
+
+    try fileManager.createDirectory(at: docURL, withIntermediateDirectories: true)
+    if fileManager.fileExists(atPath: napcatURL.path) {
+        try fileManager.removeItem(at: napcatURL)
+    }
+    try fileManager.moveItem(at: stagingURL, to: napcatURL)
 }
 
 enum PatchStatus: Equatable {

@@ -53,4 +53,7 @@ xcuserdata/
 /*.gcno
 **/xcshareddata/WorkspaceSettings.xcsettings
 
+# Local build output
+.build/
+
 # End of https://www.toptal.com/developers/gitignore/api/xcode,macos

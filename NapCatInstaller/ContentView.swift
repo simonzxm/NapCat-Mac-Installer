@@ -103,10 +103,15 @@ struct ContentView: View {
                 napcatVersion = .missing
                 return
             }
-            if local.compare(remote, options: .numeric) == .orderedAscending {
-                napcatVersion = .outdated(local, remote)
-            } else {
-                napcatVersion = .latest(remote)
+            switch local {
+            case .unknown:
+                napcatVersion = .outdated(NSLocalizedString("未知", comment: ""), remote)
+            case .known(let version):
+                if version.compare(remote, options: .numeric) == .orderedAscending {
+                    napcatVersion = .outdated(version, remote)
+                } else {
+                    napcatVersion = .latest(version)
+                }
             }
         } catch {
             napcatVersion = .failed(error.localizedDescription)

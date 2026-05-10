@@ -327,6 +327,16 @@
         }
       }
     },
+    "未知" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown"
+          }
+        }
+      }
+    },
     "正常启动 QQ GUI，不注入 NapCat" : {
       "localizations" : {
         "en" : {
