@@ -592,7 +592,7 @@ let napcatInstructions = #"""
     $ \#(launcherURL.path)
     # \#(NSLocalizedString("参数可以加 -q <QQ号> 快速登录", comment: ""))
 
-    # \#(NSLocalizedString("正常启动 QQ GUI，不注入 NapCat", comment: ""))
+    # \#(NSLocalizedString("正常启动 QQ 图形界面，不注入 NapCat", comment: ""))
     $ open -a QQ.app -n
     """#
 

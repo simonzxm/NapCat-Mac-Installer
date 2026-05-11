@@ -67,7 +67,7 @@ struct ContentView: View {
                 NapcatUsageView()
             }
             if let url = try? getWebUILink() {
-                Button("打开WebUI…") {
+                Button("打开网页管理界面…") {
                     NSWorkspace.shared.open(url)
                 }
             }
