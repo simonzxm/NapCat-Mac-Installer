@@ -383,7 +383,7 @@ private let launcherURL = docURL.appendingPathComponent("startNapCat.command")
 let napcatLoader = loaderURL.path
 private let legacyNapcatLoader = "../../../../..\(docURL.path)/loadNapCat.js"
 private let patchedMain = "./app_launcher/index.js"
-private let patchedEntry = "require('\(loaderURL.path)');\n"
+private let patchedEntry = "require('\(loaderURL.path)')(module);\n"
 let napcatLoaders = [napcatLoader, legacyNapcatLoader]
 
 private func appLauncherIndexURL(for appURL: URL) -> URL {
@@ -438,6 +438,7 @@ func getPatchStatus() throws -> PatchStatus {
 
 private func createLoader() throws {
     try #"""
+    module.exports = function startNapCat(launcherModule = module) {
     const fs = require('fs');
     const path = require('path');
 
@@ -490,8 +491,7 @@ private func createLoader() throws {
     const shouldLoadNapcat =
         process.env.NAPCAT === '1' ||
         process.env.NAPCAT_INJECT === '1' ||
-        process.argv.includes('--napcat') ||
-        process.argv.includes('--no-sandbox');
+        process.argv.includes('--napcat');
     const appPath = getActiveAppPath();
     const package = require(path.join(appPath, 'package.json'));
 
@@ -501,12 +501,17 @@ private func createLoader() throws {
             await import('file://\#(docURL.path)/napcat/napcat.mjs');
         })();
     } else {
-        require(path.join(appPath, 'major.node')).load('internal_index', module);
+        require(path.join(appPath, 'major.node')).load('internal_index', launcherModule);
         setImmediate(() => {
             if (global.launcher?.installPathPkgJson) {
                 global.launcher.installPathPkgJson.main = getOriginalMain(package.buildVersion);
             }
         });
+    }
+    };
+
+    if (require.main === module) {
+        module.exports(module);
     }
     """#
     .write(to: loaderURL, atomically: true, encoding: .utf8)
