@@ -2,7 +2,14 @@
   "sourceLanguage": "zh-Hans",
   "strings": {
     " %@": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " %@"
+          }
+        }
+      }
     },
     " %@，可升级%@": {
       "localizations": {
@@ -11,122 +18,454 @@
             "state": "new",
             "value": " %1$@，可升级%2$@"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " %1$@, update available: %2$@"
+          }
         }
       }
     },
     " %@，已是最新": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " %@, up to date"
+          }
+        }
+      }
     },
     " NapCat": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " NapCat"
+          }
+        }
+      }
     },
     " 原版QQ": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Original QQ"
+          }
+        }
+      }
     },
     " 发生错误": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Error"
+          }
+        }
+      }
     },
     " 未安装": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Not installed"
+          }
+        }
+      }
     },
     " 正在加载…": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Loading..."
+          }
+        }
+      }
     },
     " 正在读取…": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Loading..."
+          }
+        }
+      }
     },
     " 自定义 %@": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Custom %@"
+          }
+        }
+      }
     },
     "，然后点击刷新": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", then click Refresh"
+          }
+        }
+      }
     },
     "gh-proxy": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gh-proxy"
+          }
+        }
+      }
     },
     "ghproxy": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ghproxy"
+          }
+        }
+      }
     },
     "haod": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "haod"
+          }
+        }
+      }
     },
     "moeyy": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "moeyy"
+          }
+        }
+      }
     },
     "NapCat版本": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NapCat Version"
+          }
+        }
+      }
     },
     "QQ应用目录": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QQ App Directory"
+          }
+        }
+      }
     },
     "QQ版本": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QQ Version"
+          }
+        }
+      }
     },
     "下的package.json文件": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "package.json file"
+          }
+        }
+      }
     },
     "不使用": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
+          }
+        }
+      }
     },
     "代理": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proxy"
+          }
+        }
+      }
     },
     "修改的文件": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "modified file"
+          }
+        }
+      }
     },
     "刷新": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh"
+          }
+        }
+      }
     },
     "卸载": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uninstall"
+          }
+        }
+      }
     },
     "参数可以加 -q <QQ号> 快速登录": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add -q <QQ number> for quick login"
+          }
+        }
+      }
     },
     "发生错误": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error"
+          }
+        }
+      }
     },
     "命令行启动，注入 NapCat": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start from command line and inject NapCat"
+          }
+        }
+      }
     },
     "好": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
     },
     "如果要还原，请将备份的package.json文件放回": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To restore, put the backed-up package.json back into"
+          }
+        }
+      }
     },
     "安装": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install"
+          }
+        }
+      }
     },
     "打开网页管理界面…": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Web UI..."
+          }
+        }
+      }
     },
     "更新": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update"
+          }
+        }
+      }
     },
     "未知": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown"
+          }
+        }
+      }
     },
     "正常启动 QQ 图形界面，不注入 NapCat": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start QQ normally without injecting NapCat"
+          }
+        }
+      }
     },
     "然后使用此": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "then use this"
+          }
+        }
+      }
     },
     "程序入口": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch Entry"
+          }
+        }
+      }
     },
     "自动检测": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-detect"
+          }
+        }
+      }
     },
     "覆盖，最后点击刷新": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "to apply the patch, then click Refresh"
+          }
+        }
+      }
     },
     "请先还原再卸载": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore the patch before uninstalling"
+          }
+        }
+      }
     },
     "请备份": {
-      "localizations": {}
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back up"
+          }
+        }
+      }
+    },
+    "，最后点击刷新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", then click Refresh"
+          }
+        }
+      }
+    },
+    "下的启动入口": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "launch entry"
+          }
+        }
+      }
+    },
+    "将自动备份并修改": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically back up and modify"
+          }
+        }
+      }
+    },
+    "应用补丁": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply Patch"
+          }
+        }
+      }
+    },
+    "已修改 QQ 启动入口": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QQ launch entry has been modified"
+          }
+        }
+      }
+    },
+    "还原补丁": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Patch"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
